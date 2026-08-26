@@ -1,0 +1,448 @@
+ <!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zaman Bükücü - CRV Games</title>
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <style>
+    body {
+      background-color: #121212;
+      color: #ffffff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+
+    h1 {
+      color: #00e676;
+      margin-bottom: 5px;
+    }
+
+    .status-box {
+      font-size: 0.9rem;
+      color: #aaa;
+      margin-bottom: 15px;
+    }
+
+    .offline-alert {
+      display: none;
+      background-color: #d32f2f;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: bold;
+      margin-bottom: 15px;
+    }
+
+    .message-box {
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: #ff5252;
+      min-height: 25px;
+      margin-bottom: 10px;
+    }
+
+    .name-input-container {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 15px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .name-input {
+      background: #1e1e1e;
+      border: 1px solid #333;
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 1rem;
+      outline: none;
+      text-align: center;
+    }
+
+    .name-input:focus {
+      border-color: #00e676;
+    }
+
+    .save-name-btn {
+      background: #00e676;
+      color: #000;
+      border: none;
+      padding: 8px 15px;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .reset-score-btn {
+      background: #ff5252;
+      color: #fff;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .main-button-container {
+      perspective: 1000px;
+      margin: 15px 0;
+    }
+
+    .game-btn {
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      border: none;
+      background: linear-gradient(145deg, #ff5252, #d50000);
+      color: white;
+      font-size: 2.2rem;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 10px 25px rgba(213, 0, 0, 0.5), inset 0 5px 10px rgba(255, 255, 255, 0.4);
+      transition: all 0.1s ease;
+      outline: none;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .game-btn:active, .game-btn.pressed {
+      transform: scale(0.92) translateY(8px);
+      box-shadow: 0 2px 10px rgba(213, 0, 0, 0.8), inset 0 8px 15px rgba(0, 0, 0, 0.6);
+      background: linear-gradient(145deg, #d50000, #9b0000);
+    }
+
+    .emoji-bar {
+      display: flex;
+      gap: 10px;
+      background: #1e1e1e;
+      padding: 10px 20px;
+      border-radius: 30px;
+      margin-bottom: 25px;
+      margin-top: 10px;
+    }
+
+    .emoji-btn {
+      font-size: 1.8rem;
+      background: none;
+      border: none;
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+
+    .emoji-btn:hover {
+      transform: scale(1.3);
+    }
+
+    .leaderboard-container {
+      width: 100%;
+      max-width: 500px;
+      background: #1e1e1e;
+      border-radius: 12px;
+      padding: 15px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    }
+
+    .leaderboard-title {
+      font-size: 1.2rem;
+      color: #00e676;
+      margin-bottom: 10px;
+      text-align: center;
+      border-bottom: 1px solid #333;
+      padding-bottom: 8px;
+    }
+
+    .score-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 12px;
+      margin: 4px 0;
+      background: #2a2a2a;
+      border-radius: 6px;
+    }
+
+    .score-row.current-player {
+      border: 1px solid #00e676;
+      background: #1b3a26;
+    }
+
+    .toast-emoji {
+      position: fixed;
+      top: 25%;
+      font-size: 4.5rem;
+      animation: popFade 2s forwards;
+      pointer-events: none;
+    }
+
+    @keyframes popFade {
+      0% { opacity: 0; transform: scale(0.5) translateY(0); }
+      20% { opacity: 1; transform: scale(1.2) translateY(-10px); }
+      80% { opacity: 1; transform: scale(1) translateY(-20px); }
+      100% { opacity: 0; transform: scale(0.8) translateY(-40px); }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>CRV Games - Zaman Bükücü</h1>
+  <div class="offline-alert" id="offlineAlert">İnternet bağlantınız yok! Oyunu oynamak için bağlanın.</div>
+  <div class="status-box" id="status">Bağlantı kuruluyor...</div>
+  <div class="message-box" id="messageBox"></div>
+
+  <div class="name-input-container">
+    <input type="text" id="playerNameInput" class="name-input" maxlength="20" placeholder="Oyuncu Adı (Maks 20)" />
+    <button class="save-name-btn" onclick="updatePlayerName()">Kaydet</button>
+    <button class="reset-score-btn" onclick="resetMyScore()" title="Kayıtlı rekoru temizle">Skoru Sıfırla</button>
+  </div>
+
+  <div class="main-button-container">
+    <button class="game-btn" id="timerBtn">10.000</button>
+  </div>
+
+  <div class="emoji-bar">
+    <button class="emoji-btn" onclick="sendEmoji('🤣')">🤣</button>
+    <button class="emoji-btn" onclick="sendEmoji('😎')">😎</button>
+    <button class="emoji-btn" onclick="sendEmoji('😡')">😡</button>
+    <button class="emoji-btn" onclick="sendEmoji('☠')">☠</button>
+    <button class="emoji-btn" onclick="sendEmoji('🤓')">🤓</button>
+  </div>
+
+  <div class="leaderboard-container">
+    <div class="leaderboard-title">Canlı Oyuncu Sıralaması</div>
+    <div id="leaderboard"></div>
+  </div>
+
+  <script>
+    let myName = localStorage.getItem('crv_player_name') || ("Oyuncu_" + Math.floor(Math.random() * 8999 + 1000));
+    
+    // Kayıtlı skor kontrolü
+    let storedScore = localStorage.getItem('crv_best_score');
+    let myRecord = (storedScore !== null && !isNaN(parseFloat(storedScore))) ? parseFloat(storedScore) : null;
+    
+    let isRunning = false;
+    let startTime = 0;
+    let timerInterval = null;
+    let peer = null;
+    let connections = {};
+
+    let playersData = [
+      { id: myName, score: myRecord }
+    ];
+
+    const timerBtn = document.getElementById('timerBtn');
+    const statusText = document.getElementById('status');
+    const offlineAlert = document.getElementById('offlineAlert');
+    const nameInput = document.getElementById('playerNameInput');
+    const messageBox = document.getElementById('messageBox');
+
+    nameInput.value = myName;
+
+    function checkInternetConnection() {
+      if (!navigator.onLine) {
+        offlineAlert.style.display = 'block';
+        statusText.innerText = "Çevrimdışı";
+      } else {
+        offlineAlert.style.display = 'none';
+      }
+    }
+
+    window.addEventListener('online', checkInternetConnection);
+    window.addEventListener('offline', checkInternetConnection);
+
+    function initPeer() {
+      checkInternetConnection();
+      if (!navigator.onLine) return;
+
+      peer = new Peer();
+
+      peer.on('open', () => {
+        statusText.innerText = "Sistem Çevrimiçi";
+        updateLeaderboard();
+      });
+
+      peer.on('connection', (conn) => {
+        setupConnection(conn);
+      });
+    }
+
+    function setupConnection(conn) {
+      connections[conn.peer] = conn;
+
+      conn.on('data', (data) => {
+        if (data.type === 'emoji') {
+          showEmojiToast(data.emoji);
+        } else if (data.type === 'score') {
+          updatePeerScore(data.name, data.score);
+        } else if (data.type === 'name_change') {
+          renamePeer(data.oldName, data.newName);
+        }
+      });
+
+      conn.on('close', () => {
+        delete connections[conn.peer];
+      });
+
+      if (conn.open) {
+        conn.send({ type: 'score', name: myName, score: myRecord });
+      }
+    }
+
+    function sendToAll(data) {
+      Object.values(connections).forEach(conn => {
+        if (conn.open) conn.send(data);
+      });
+    }
+
+    function updatePlayerName() {
+      let newName = nameInput.value.trim();
+      if (newName.length > 0 && newName.length <= 20) {
+        let oldName = myName;
+        myName = newName;
+        localStorage.setItem('crv_player_name', myName);
+
+        let p = playersData.find(item => item.id === oldName);
+        if (p) p.id = myName;
+
+        updateLeaderboard();
+        sendToAll({ type: 'name_change', oldName: oldName, newName: myName });
+      } else {
+        alert("Lütfen 1 ile 20 karakter arasında bir isim girin.");
+      }
+    }
+
+    function resetMyScore() {
+      localStorage.removeItem('crv_best_score');
+      myRecord = null;
+      
+      let p = playersData.find(item => item.id === myName);
+      if (p) p.score = null;
+
+      timerBtn.innerText = "10.000";
+      updateLeaderboard();
+      sendToAll({ type: 'score', name: myName, score: null });
+      messageBox.innerText = "Skorunuz sıfırlandı.";
+      setTimeout(() => messageBox.innerText = "", 2000);
+    }
+
+    function renamePeer(oldName, newName) {
+      let p = playersData.find(item => item.id === oldName);
+      if (p) {
+        p.id = newName;
+        updateLeaderboard();
+      }
+    }
+
+    timerBtn.addEventListener('click', () => {
+      if (!isRunning) {
+        startTimer();
+      } else {
+        stopTimer(false);
+      }
+    });
+
+    function startTimer() {
+      isRunning = true;
+      messageBox.innerText = "";
+      timerBtn.classList.add('pressed');
+      startTime = performance.now();
+
+      timerInterval = setInterval(() => {
+        let elapsed = (performance.now() - startTime) / 1000;
+        let remaining = 10.000 - elapsed;
+
+        if (remaining <= 0) {
+          remaining = 0;
+          timerBtn.innerText = "10.000";
+          stopTimer(true);
+        } else {
+          timerBtn.innerText = remaining.toFixed(3);
+        }
+      }, 10);
+    }
+
+    function stopTimer(isTimeout) {
+      clearInterval(timerInterval);
+      isRunning = false;
+      timerBtn.classList.remove('pressed');
+
+      if (isTimeout) {
+        messageBox.innerText = "Zamanında basmadın!";
+        timerBtn.innerText = "10.000";
+        return;
+      }
+
+      let finalScore = parseFloat(timerBtn.innerText);
+
+      if (finalScore > 0 && (myRecord === null || finalScore < myRecord)) {
+        myRecord = finalScore;
+        localStorage.setItem('crv_best_score', myRecord);
+        updatePeerScore(myName, myRecord);
+        sendToAll({ type: 'score', name: myName, score: myRecord });
+      }
+    }
+
+    function updatePeerScore(name, score) {
+      let player = playersData.find(p => p.id === name);
+      if (player) {
+        player.score = score;
+      } else {
+        playersData.push({ id: name, score: score });
+      }
+      updateLeaderboard();
+    }
+
+    function updateLeaderboard() {
+      playersData.sort((a, b) => {
+        if (a.score === null) return 1;
+        if (b.score === null) return -1;
+        return a.score - b.score;
+      });
+
+      const board = document.getElementById('leaderboard');
+      board.innerHTML = '';
+
+      playersData.forEach((p, index) => {
+        const row = document.createElement('div');
+        row.className = 'score-row' + (p.id === myName ? ' current-player' : '');
+        row.innerHTML = `
+          <span>#${index + 1} ${p.id}</span>
+          <span>${(p.score === null || isNaN(p.score)) ? '--.---s' : p.score.toFixed(3) + 's'}</span>
+        `;
+        board.appendChild(row);
+      });
+    }
+
+    function sendEmoji(emoji) {
+      showEmojiToast(emoji);
+      sendToAll({ type: 'emoji', emoji: emoji });
+    }
+
+    function showEmojiToast(emoji) {
+      const toast = document.createElement('div');
+      toast.className = 'toast-emoji';
+      toast.innerText = emoji;
+      document.body.appendChild(toast);
+
+      setTimeout(() => {
+        toast.remove();
+      }, 2000);
+    }
+
+    window.onload = () => {
+      checkInternetConnection();
+      initPeer();
+      timerBtn.innerText = "10.000";
+      updateLeaderboard();
+    };
+  </script>
+</body>
+</html>

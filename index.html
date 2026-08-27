@@ -195,7 +195,7 @@
 
   <h1>CRV Games - Zaman Bükücü</h1>
   <div class="offline-alert" id="offlineAlert">İnternet bağlantınız yok! Oyunu oynamak için bağlanın.</div>
-  <div class="status-box" id="status">Bağlantı kuruluyor...</div>
+  <div class="status-box" id="status">Lobiye bağlanılıyor...</div>
   <div class="message-box" id="messageBox"></div>
 
   <div class="name-input-container">
@@ -222,9 +222,9 @@
   </div>
 
   <script>
+    const ROOM_HOST_ID = "crvgames-zaman-bukucu-global-room"; // Ortak Oda ID'si
     let myName = localStorage.getItem('crv_player_name') || ("Oyuncu_" + Math.floor(Math.random() * 8999 + 1000));
     
-    // Kayıtlı skor kontrolü
     let storedScore = localStorage.getItem('crv_best_score');
     let myRecord = (storedScore !== null && !isNaN(parseFloat(storedScore))) ? parseFloat(storedScore) : null;
     
@@ -232,7 +232,7 @@
     let startTime = 0;
     let timerInterval = null;
     let peer = null;
-    let connections = {};
+    let connections = [];
 
     let playersData = [
       { id: myName, score: myRecord }
@@ -262,20 +262,38 @@
       checkInternetConnection();
       if (!navigator.onLine) return;
 
-      peer = new Peer();
+      // İlk giren oyuncu Host (Ev Sahibi) olur, diğerleri ona bağlanır
+      peer = new Peer(ROOM_HOST_ID);
 
       peer.on('open', () => {
-        statusText.innerText = "Sistem Çevrimiçi";
+        statusText.innerText = "Lobi Oluşturuldu (Oda Sahibisin)";
         updateLeaderboard();
       });
 
       peer.on('connection', (conn) => {
         setupConnection(conn);
       });
+
+      peer.on('error', (err) => {
+        if (err.type === 'unavailable-id') {
+          // Eğer oda zaten kurulmuşsa rastgele ID al ve var olan odaya katıl
+          peer = new Peer();
+          peer.on('open', () => {
+            statusText.innerText = "Lobiye Bağlanıldı";
+            let conn = peer.connect(ROOM_HOST_ID);
+            setupConnection(conn);
+          });
+          peer.on('connection', (conn) => setupConnection(conn));
+        }
+      });
     }
 
     function setupConnection(conn) {
-      connections[conn.peer] = conn;
+      connections.push(conn);
+
+      conn.on('open', () => {
+        conn.send({ type: 'sync', name: myName, score: myRecord, allPlayers: playersData });
+      });
 
       conn.on('data', (data) => {
         if (data.type === 'emoji') {
@@ -284,20 +302,21 @@
           updatePeerScore(data.name, data.score);
         } else if (data.type === 'name_change') {
           renamePeer(data.oldName, data.newName);
+        } else if (data.type === 'sync') {
+          updatePeerScore(data.name, data.score);
+          if (data.allPlayers) {
+            data.allPlayers.forEach(p => updatePeerScore(p.id, p.score));
+          }
         }
       });
 
       conn.on('close', () => {
-        delete connections[conn.peer];
+        connections = connections.filter(c => c !== conn);
       });
-
-      if (conn.open) {
-        conn.send({ type: 'score', name: myName, score: myRecord });
-      }
     }
 
     function sendToAll(data) {
-      Object.values(connections).forEach(conn => {
+      connections.forEach(conn => {
         if (conn.open) conn.send(data);
       });
     }

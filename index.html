@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
@@ -7,11 +7,11 @@
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <style>
     body {
-       background-image: linear-gradient(rgba(0, 0, 0, 0.0), rgba(0, 0, 0, 0.0)), url('c.jpeg');
-             background-repeat: no-repeat;
-             background-position: center center;
-             background-attachment: fixed;
-             background-size: cover;
+      background-image: linear-gradient(rgba(0, 0, 0, 0.0), rgba(0, 0, 0, 0.0)), url('c.jpeg');
+      background-repeat: no-repeat;
+      background-position: center center;
+      background-attachment: fixed;
+      background-size: cover;
       color: #ffffff;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       display: flex;
@@ -125,35 +125,87 @@
       background: linear-gradient(145deg, #d50000, #9b0000);
     }
 
-    .emoji-bar {
+    /* Chat Alanı Stilleri */
+    .chat-container {
+      width: 100%;
+      max-width: 500px;
+      background: rgba(30, 30, 30, 0.9);
+      border-radius: 12px;
+      padding: 15px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+      margin-bottom: 20px;
+      margin-top: 15px;
+      box-sizing: border-box;
+    }
+
+    .chat-title {
+      font-size: 1.1rem;
+      color: #00e676;
+      margin-bottom: 10px;
+      text-align: center;
+      border-bottom: 1px solid #333;
+      padding-bottom: 5px;
+    }
+
+    .chat-messages {
+      height: 120px;
+      overflow-y: auto;
+      background: #121212;
+      border-radius: 6px;
+      padding: 10px;
+      margin-bottom: 10px;
       display: flex;
-      gap: 10px;
-      background: #1e1e1e;
-      padding: 10px 20px;
-      border-radius: 30px;
-      margin-bottom: 25px;
-      margin-top: 10px;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 0.9rem;
     }
 
-    .emoji-btn {
-      font-size: 1.8rem;
-      background: none;
+    .chat-message-item {
+      word-break: break-word;
+    }
+
+    .chat-sender {
+      color: #00e676;
+      font-weight: bold;
+    }
+
+    .chat-input-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .chat-input {
+      flex: 1;
+      background: #121212;
+      border: 1px solid #333;
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 6px;
+      outline: none;
+    }
+
+    .chat-input:focus {
+      border-color: #00e676;
+    }
+
+    .chat-send-btn {
+      background: #00e676;
+      color: #000;
       border: none;
+      padding: 8px 15px;
+      border-radius: 6px;
+      font-weight: bold;
       cursor: pointer;
-      transition: transform 0.1s;
-    }
-
-    .emoji-btn:hover {
-      transform: scale(1.3);
     }
 
     .leaderboard-container {
       width: 100%;
       max-width: 500px;
-      background: #1e1e1e;
+      background: rgba(30, 30, 30, 0.9);
       border-radius: 12px;
       padding: 15px;
       box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+      box-sizing: border-box;
     }
 
     .leaderboard-title {
@@ -178,21 +230,6 @@
       border: 1px solid #00e676;
       background: #1b3a26;
     }
-
-    .toast-emoji {
-      position: fixed;
-      top: 25%;
-      font-size: 4.5rem;
-      animation: popFade 2s forwards;
-      pointer-events: none;
-    }
-
-    @keyframes popFade {
-      0% { opacity: 0; transform: scale(0.5) translateY(0); }
-      20% { opacity: 1; transform: scale(1.2) translateY(-10px); }
-      80% { opacity: 1; transform: scale(1) translateY(-20px); }
-      100% { opacity: 0; transform: scale(0.8) translateY(-40px); }
-    }
   </style>
 </head>
 <body>
@@ -212,12 +249,14 @@
     <button class="game-btn" id="timerBtn">10.000</button>
   </div>
 
-  <div class="emoji-bar">
-    <button class="emoji-btn" onclick="sendEmoji('🤣')">🤣</button>
-    <button class="emoji-btn" onclick="sendEmoji('😎')">😎</button>
-    <button class="emoji-btn" onclick="sendEmoji('😡')">😡</button>
-    <button class="emoji-btn" onclick="sendEmoji('☠')">☠</button>
-    <button class="emoji-btn" onclick="sendEmoji('🤓')">🤓</button>
+  <!-- Chat Alanı -->
+  <div class="chat-container">
+    <div class="chat-title">Canlı Sohbet</div>
+    <div class="chat-messages" id="chatMessages"></div>
+    <div class="chat-input-row">
+      <input type="text" id="chatInput" class="chat-input" placeholder="Mesajınızı yazın..." maxlength="100" />
+      <button class="chat-send-btn" onclick="sendChatMessage()">Gönder</button>
+    </div>
   </div>
 
   <div class="leaderboard-container">
@@ -226,7 +265,7 @@
   </div>
 
   <script>
-    const ROOM_HOST_ID = "crvgames-zaman-bukucu-global-room"; // Ortak Oda ID'si
+    const ROOM_HOST_ID = "crvgames-zaman-bukucu-global-room";
     let myName = localStorage.getItem('crv_player_name') || ("Oyuncu_" + Math.floor(Math.random() * 8999 + 1000));
     
     let storedScore = localStorage.getItem('crv_best_score');
@@ -247,6 +286,8 @@
     const offlineAlert = document.getElementById('offlineAlert');
     const nameInput = document.getElementById('playerNameInput');
     const messageBox = document.getElementById('messageBox');
+    const chatMessages = document.getElementById('chatMessages');
+    const chatInput = document.getElementById('chatInput');
 
     nameInput.value = myName;
 
@@ -266,7 +307,6 @@
       checkInternetConnection();
       if (!navigator.onLine) return;
 
-      // İlk giren oyuncu Host (Ev Sahibi) olur, diğerleri ona bağlanır
       peer = new Peer(ROOM_HOST_ID);
 
       peer.on('open', () => {
@@ -280,7 +320,6 @@
 
       peer.on('error', (err) => {
         if (err.type === 'unavailable-id') {
-          // Eğer oda zaten kurulmuşsa rastgele ID al ve var olan odaya katıl
           peer = new Peer();
           peer.on('open', () => {
             statusText.innerText = "Lobiye Bağlanıldı";
@@ -300,8 +339,8 @@
       });
 
       conn.on('data', (data) => {
-        if (data.type === 'emoji') {
-          showEmojiToast(data.emoji);
+        if (data.type === 'chat') {
+          appendChatMessage(data.name, data.message);
         } else if (data.type === 'score') {
           updatePeerScore(data.name, data.score);
         } else if (data.type === 'name_change') {
@@ -323,6 +362,33 @@
       connections.forEach(conn => {
         if (conn.open) conn.send(data);
       });
+    }
+
+    function sendChatMessage() {
+      let text = chatInput.value.trim();
+      if (text.length > 0) {
+        appendChatMessage(myName, text);
+        sendToAll({ type: 'chat', name: myName, message: text });
+        chatInput.value = '';
+      }
+    }
+
+    chatInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        sendChatMessage();
+      }
+    });
+
+    function appendChatMessage(sender, text) {
+      const msgDiv = document.createElement('div');
+      msgDiv.className = 'chat-message-item';
+      msgDiv.innerHTML = `<span class="chat-sender">${sender}:</span> ${escapeHtml(text)}`;
+      chatMessages.appendChild(msgDiv);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function escapeHtml(text) {
+      return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
 
     function updatePlayerName() {
@@ -442,22 +508,6 @@
         `;
         board.appendChild(row);
       });
-    }
-
-    function sendEmoji(emoji) {
-      showEmojiToast(emoji);
-      sendToAll({ type: 'emoji', emoji: emoji });
-    }
-
-    function showEmojiToast(emoji) {
-      const toast = document.createElement('div');
-      toast.className = 'toast-emoji';
-      toast.innerText = emoji;
-      document.body.appendChild(toast);
-
-      setTimeout(() => {
-        toast.remove();
-      }, 2000);
     }
 
     window.onload = () => {
